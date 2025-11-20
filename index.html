@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteador de Times de Futebol</title>
+    <!-- Carrega o Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Biblioteca para capturar HTML e transformá-lo em imagem (Canvas) -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        /* Define a fonte Inter como padrão */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb; /* Cor de fundo suave */
+        }
+        /* Estilos personalizados para os cards dos times */
+        .team-card {
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .team-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        }
+        /* Estilo para a lista de jogadores */
+        .player-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 1rem;
+        }
+        .player-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-weight: 500;
+            color: #1a202c;
+            /* Adiciona uma transição para a aparição suave do jogador */
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+        .player-list li.animated-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .player-list li:last-child {
+            border-bottom: none;
+        }
+        /* Adiciona um estilo para o overlay de carregamento da imagem */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 10;
+            border-radius: 0.75rem; /* rounded-xl */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white p-6 sm:p-10 rounded-xl shadow-2xl relative">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-blue-800">Sorteio Dinâmico de Times</h1>
+            <p class="text-xl text-gray-500 mt-2">Defina o número de times e o mínimo de jogadores por time.</p>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Coluna 1: Lista de Jogadores -->
+            <div class="md:col-span-1">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">1. Lista de Jogadores</h2>
+                <textarea
+                    id="names-input"
+                    rows="10"
+                    placeholder="Cole ou digite os nomes aqui, um por linha. (Ex: João, Maria, Pedro...)"
+                    maxlength="2000"
+                    class="w-full p-4 border-2 border-blue-300 rounded-lg focus:ring-4 focus:ring-blue-200 transition duration-300 resize-none text-gray-800"
+                ></textarea>
+                <!-- REMOVIDO: <p class="text-sm text-gray-500 mt-2">Máximo recomendado: 18 nomes.</p> -->
+            </div>
+
+            <!-- Coluna 2: Parâmetros e Ação -->
+            <div class="md:col-span-1">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">2. Parâmetros e Sorteio</h2>
+                
+                <div class="space-y-4 mb-6 p-4 border-2 border-gray-200 rounded-lg bg-gray-50">
+                    <!-- Campo: Número de Times -->
+                    <label class="block">
+                        <span class="text-gray-600 font-medium">Número de Times:</span>
+                        <input id="num-teams-input" type="number" value="3" min="2" 
+                               class="mt-1 block w-full p-2 border-2 border-indigo-300 rounded-lg focus:ring-4 focus:ring-indigo-200 text-gray-800"
+                        >
+                    </label>
+                    
+                    <!-- Campo: Mínimo de Jogadores por Time -->
+                    <label class="block">
+                        <span class="text-gray-600 font-medium">Mínimo de Jogadores por Time:</span>
+                        <input id="min-players-input" type="number" value="6" min="1"
+                               class="mt-1 block w-full p-2 border-2 border-indigo-300 rounded-lg focus:ring-4 focus:ring-indigo-200 text-gray-800"
+                        >
+                    </label>
+                </div>
+
+                <button
+                    onclick="sortearTimes()"
+                    id="sort-button"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-green-300 text-lg"
+                >
+                    ⚽ Sortear Times
+                </button>
+                <div id="error-message" class="mt-4 text-red-600 font-medium hidden"></div>
+                <!-- Altera a cor para azul vibrante durante o sorteio -->
+                <div id="count-message" class="mt-4 text-blue-600 font-medium hidden"></div>
+            </div>
+        </section>
+        
+        <!-- Overlay de carregamento para a captura de imagem -->
+        <div id="loading-capture" class="loading-overlay hidden">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-blue-500 border-t-transparent mb-3"></div>
+            <p class="text-gray-700 font-semibold">Gerando imagem dos times...</p>
+        </div>
+
+
+        <section id="results-section" class="mt-10 border-t pt-8 hidden">
+            
+            <!-- ÁREA DE CAPTURA DE IMAGEM: Apenas o conteúdo dos times está aqui. -->
+            <div id="capture-area">
+                <h2 class="text-3xl font-bold text-blue-800 mb-2 text-center">Times Sorteados</h2>
+                
+                <!-- NOVO: Contador de Sorteios -->
+                <p id="draw-counter" class="text-sm text-gray-700 mb-1 text-center font-bold"></p> 
+
+                <!-- Elemento para exibir a data e hora do sorteio -->
+                <p id="draw-datetime" class="text-sm text-gray-500 mb-6 text-center"></p> 
+                
+                <!-- O container de times agora será preenchido dinamicamente -->
+                <div id="teams-container" class="grid gap-6"> 
+                    <!-- Cards dos times serão inseridos aqui pelo JavaScript -->
+                </div>
+            </div>
+            <!-- FIM DA ÁREA DE CAPTURA -->
+
+
+            <!-- Botões de Compartilhamento (Permanecem fora da área de captura) -->
+            <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
+                <button
+                    onclick="shareTeams()"
+                    id="share-text-button"
+                    class="hidden bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 text-lg flex items-center justify-center"
+                >
+                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.01 2.01C7.86 2.01 4.5 5.37 4.5 9.52c0 4.15 3.36 7.51 7.51 7.51h3.35l4.33 4.33c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41l-4.22-4.22c4.15 0 7.51-3.36 7.51-7.51C19.52 5.37 16.16 2.01 12.01 2.01zm-3.8 11.23c-.11-.06-.71-.35-.82-.39-.1-.04-.17-.06-.24.06-.06.11-.22.28-.27.35-.06.06-.11.07-.2.02-.3-.12-.87-.32-1.65-1.01-.6-.53-1-1.19-1.07-1.31-.07-.12-.01-.19.05-.24.05-.05.12-.13.17-.19.05-.06.07-.11.11-.18.04-.06.02-.11 0-.17-.02-.06-.24-.58-.33-.79-.09-.2-.18-.17-.24-.17-.06 0-.13-.01-.2-.01s-.18.01-.27.13c-.1.12-.37.36-.37.89 0 .53.38 1.03.43 1.11.05.08.76 1.17 1.84 1.63 1.06.44 1.95.42 2.22.3.29-.12.71-.29.81-.35.09-.06.19-.01.27.05.08.06.51.32.61.38.1.06.18.04.24 0 .06-.06.31-.19.6-.33.29-.14.19-.22.13-.24-.06-.02-.11-.06-.17-.11z"/>
+                    </svg>
+                    Compartilhar Texto (WhatsApp)
+                </button>
+
+                <button
+                    onclick="captureImage()"
+                    id="capture-button"
+                    class="hidden bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-blue-300 text-lg flex items-center justify-center"
+                >
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664.89l1.416.708a2 2 0 001.664 0l1.416-.708A2 2 0 0015.07 7H16a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V9a2 2 0 012-2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 17a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+                    Capturar Imagem (Download)
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Variável global para armazenar os times sorteados para a função de compartilhamento
+        let sortedTeamsData = [];
+        let drawCount = 0; // Contador de sorteios realizados na sessão
+        const ANIMATION_DELAY = 150; // Ajustado de 50ms para 150ms para animação mais lenta
+
+        // Função para embaralhar um array (Algoritmo de Fisher-Yates)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Função para compartilhar os resultados no WhatsApp (Texto)
+        function shareTeams() {
+            if (sortedTeamsData.length === 0) {
+                const errorMessage = document.getElementById('error-message');
+                errorMessage.textContent = 'Nenhum sorteio realizado. Por favor, sorteie os times primeiro.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            let shareText = "⚽ *Times Sorteados* ⚽\n\n";
+            
+            // Constrói a mensagem a partir dos dados armazenados
+            sortedTeamsData.forEach((teamPlayers, index) => {
+                const teamNumber = index + 1;
+                shareText += `*Time ${teamNumber}* (${teamPlayers.length} jogadores):\n`;
+                if (teamPlayers.length > 0) {
+                    // Formata a lista para melhor visualização no WhatsApp
+                    shareText += "  - " + teamPlayers.join('\n  - ') + '\n'; 
+                } else {
+                    shareText += '(Time Vazio)\n';
+                }
+                shareText += '\n';
+            });
+            
+            shareText += "Bora pro jogo! 🥅";
+
+            // Abre o link do WhatsApp com a mensagem codificada
+            const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        // Função para capturar a seção de resultados como imagem (PNG), AGORA SEM OS BOTÕES
+        function captureImage() {
+            const resultsSection = document.getElementById('results-section');
+            const captureArea = document.getElementById('capture-area'); 
+            const loadingOverlay = document.getElementById('loading-capture');
+
+            if (resultsSection.classList.contains('hidden')) {
+                const errorMessage = document.getElementById('error-message');
+                errorMessage.textContent = 'Nenhum sorteio realizado para capturar a imagem.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // 1. Mostrar loading overlay
+            loadingOverlay.classList.remove('hidden');
+
+            // 2. Usar html2canvas para renderizar APENAS a área de captura
+            html2canvas(captureArea, {
+                scale: 2, 
+                backgroundColor: '#ffffff', 
+            }).then(canvas => {
+                // 3. Converter canvas para URL de dados (PNG)
+                const image = canvas.toDataURL('image/png');
+
+                // 4. Criar um link temporário para download
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = 'times_sorteados.png';
+
+                // 5. Simular o clique no link para iniciar o download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 6. Remover o loading overlay
+                loadingOverlay.classList.add('hidden');
+            }).catch(error => {
+                loadingOverlay.classList.add('hidden');
+                const errorMessage = document.getElementById('error-message');
+                errorMessage.textContent = `Erro ao gerar a imagem: ${error.message}. Tente novamente.`;
+                errorMessage.classList.remove('hidden');
+            });
+        }
+
+
+        /**
+         * Anima a distribuição dos jogadores nas listas dos times.
+         * @param {Array<Array<string>>} teams - Array com os times e seus jogadores.
+         * @param {Array<HTMLElement>} teamListElements - Elementos <ul> dos times.
+         * @param {function} onComplete - Função a ser chamada no final da animação.
+         */
+        function animateDraw(teams, teamListElements, onComplete) {
+            // Cria uma lista plana de todos os jogadores com o índice do time a que pertencem
+            const playerQueue = [];
+            teams.forEach((teamPlayers, teamIndex) => {
+                teamPlayers.forEach(player => {
+                    playerQueue.push({ player, teamIndex });
+                });
+            });
+
+            // Embaralha a ordem em que os jogadores serão adicionados para simular um sorteio dinâmico
+            shuffleArray(playerQueue);
+
+            let playerIndex = 0;
+            const N = playerQueue.length;
+
+            function addNextPlayer() {
+                if (playerIndex >= N) {
+                    // Animação completa
+                    onComplete();
+                    return;
+                }
+
+                const { player, teamIndex } = playerQueue[playerIndex];
+                const ulElement = teamListElements[teamIndex];
+                
+                if (ulElement) {
+                    // Cria o elemento <li>
+                    const li = document.createElement('li');
+                    li.textContent = player;
+                    
+                    // Adiciona o <li> à lista <ul>
+                    ulElement.appendChild(li);
+
+                    // Força um repaint para garantir que a transição CSS funcione
+                    setTimeout(() => {
+                        li.classList.add('animated-in');
+                    }, 5); 
+                }
+
+                playerIndex++;
+                // Chama a função novamente após o atraso definido
+                setTimeout(addNextPlayer, ANIMATION_DELAY);
+            }
+            
+            // Inicia a animação
+            addNextPlayer();
+        }
+
+        // Função principal para sortear os times
+        function sortearTimes() {
+            const inputElement = document.getElementById('names-input');
+            const numTeamsInput = document.getElementById('num-teams-input');
+            const minPlayersInput = document.getElementById('min-players-input');
+            const sortButton = document.getElementById('sort-button'); // ID do botão de sorteio
+            const shareTextButton = document.getElementById('share-text-button');
+            const captureButton = document.getElementById('capture-button');
+            
+            const errorMessage = document.getElementById('error-message');
+            const countMessage = document.getElementById('count-message');
+            const resultsSection = document.getElementById('results-section');
+            const teamsContainer = document.getElementById('teams-container');
+            const drawDatetimeElement = document.getElementById('draw-datetime'); 
+            const drawCounterElement = document.getElementById('draw-counter'); // Novo: Elemento do contador
+
+            // DESATIVA BOTÕES E LIMPA ESTADOS
+            sortButton.disabled = true;
+            sortButton.textContent = 'Sorteando... 🔄';
+            resultsSection.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            countMessage.classList.add('hidden');
+            teamsContainer.innerHTML = ''; 
+            shareTextButton.classList.add('hidden'); 
+            captureButton.classList.add('hidden'); 
+            sortedTeamsData = []; 
+            drawDatetimeElement.textContent = ''; 
+            drawCounterElement.textContent = ''; // Novo: Limpa o contador
+            
+            // 1. Processa e filtra os nomes
+            let names = inputElement.value
+                .split('\n')
+                .map(name => name.trim())
+                .filter(name => name !== '');
+            
+            let availablePlayers = shuffleArray(names); 
+            const N = availablePlayers.length; 
+
+            // 2. Lendo Parâmetros
+            const T = parseInt(numTeamsInput.value); 
+            const M = parseInt(minPlayersInput.value); 
+
+            // 3. Validações
+            if (N === 0) {
+                errorMessage.textContent = 'Por favor, insira pelo menos um nome.';
+                errorMessage.classList.remove('hidden');
+                sortButton.disabled = false;
+                sortButton.textContent = '⚽ Sortear Times';
+                return;
+            }
+            if (isNaN(T) || T < 2) {
+                errorMessage.textContent = 'O número de times deve ser no mínimo 2.';
+                errorMessage.classList.remove('hidden');
+                sortButton.disabled = false;
+                sortButton.textContent = '⚽ Sortear Times';
+                return;
+            }
+             if (isNaN(M) || M < 1) {
+                errorMessage.textContent = 'O mínimo de jogadores por time deve ser no mínimo 1.';
+                errorMessage.classList.remove('hidden');
+                sortButton.disabled = false;
+                sortButton.textContent = '⚽ Sortear Times';
+                return;
+            }
+
+            if (T > N) {
+                 errorMessage.textContent = `O número de times (${T}) não pode ser maior que o número total de jogadores (${N}).`;
+                errorMessage.classList.remove('hidden');
+                sortButton.disabled = false;
+                sortButton.textContent = '⚽ Sortear Times';
+                return;
+            }
+            
+            // Mensagem de Aviso
+            const requiredPlayers = T * M;
+            if (requiredPlayers > N) {
+                 countMessage.textContent = `AVISO: O total de jogadores (${N}) é menor que o mínimo estipulado (${requiredPlayers}). O sorteio será feito, mas o(s) último(s) time(s) poderá(ão) ficar abaixo do mínimo (${M}).`;
+                 countMessage.classList.add('text-orange-600', 'bg-orange-100', 'p-2', 'rounded');
+                 countMessage.classList.remove('hidden', 'text-blue-600');
+            } else {
+                 countMessage.textContent = `Total de ${N} jogadores. Criados ${T} times com mínimo de ${M} jogadores.`;
+                 countMessage.classList.add('text-blue-600');
+                 countMessage.classList.remove('hidden', 'text-orange-600', 'bg-orange-100', 'p-2', 'rounded');
+            }
+            
+            // Captura e formata a data e hora do sorteio
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            const formattedTime = now.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const datetimeString = `Sorteio realizado em ${formattedDate} às ${formattedTime}`;
+
+            // 4. Lógica de Distribuição Dinâmica - Abordagem "Greedy" (Guloso)
+            const teams = [];
+            let minTeamSize = Infinity;
+            let maxTeamSize = -Infinity;
+
+            for (let i = 0; i < T; i++) {
+                let numPlayersToTake;
+                
+                if (i < T - 1) {
+                    numPlayersToTake = Math.min(M, availablePlayers.length);
+                } else {
+                    numPlayersToTake = availablePlayers.length;
+                }
+                
+                const teamPlayers = availablePlayers.splice(0, numPlayersToTake);
+                teams.push(teamPlayers);
+
+                const currentSize = teamPlayers.length;
+                if (currentSize < minTeamSize) minTeamSize = currentSize;
+                if (currentSize > maxTeamSize) maxTeamSize = currentSize;
+            }
+            
+            // SALVA OS DADOS PARA COMPARTILHAMENTO
+            sortedTeamsData = teams;
+
+            // 5. Configura a UI para a animação
+            drawDatetimeElement.textContent = datetimeString;
+            
+            // NOVO: Incrementa e exibe o contador de sorteios
+            drawCount++;
+            drawCounterElement.textContent = `Sorteio Nº ${drawCount}`;
+
+            resultsSection.classList.remove('hidden');
+
+            // Ajusta o layout do grid baseado no número de times
+            let gridColsClass = 'grid-cols-1';
+            if (T === 2) {
+                gridColsClass = 'md:grid-cols-2';
+            } else if (T === 3) {
+                gridColsClass = 'md:grid-cols-3';
+            } else if (T >= 4) {
+                gridColsClass = 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+            }
+            teamsContainer.className = `grid gap-6 ${gridColsClass}`;
+
+            const teamColors = [
+                { bg: 'bg-blue-50', text: 'text-blue-700' },
+                { bg: 'bg-red-50', text: 'text-red-700' },
+                { bg: 'bg-green-50', text: 'text-green-700' },
+                { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+                { bg: 'bg-purple-50', text: 'text-purple-700' },
+                { bg: 'bg-pink-50', text: 'text-pink-700' }
+            ];
+
+            const teamListElements = [];
+
+            // Pré-renderiza os containers vazios
+            teams.forEach((teamPlayers, index) => {
+                const teamNumber = index + 1;
+                const color = teamColors[index % teamColors.length];
+                
+                const teamCardHtml = `
+                    <div id="team-${teamNumber}-card" class="team-card ${color.bg} p-6 rounded-xl shadow-md">
+                        <h3 class="text-2xl font-extrabold ${color.text} mb-2">Time ${teamNumber}</h3>
+                        <p class="text-sm text-gray-600 mb-4">Total de Jogadores: <span id="count-${teamNumber}" class="font-bold">${teamPlayers.length}</span></p>
+                        <ul id="team-list-${teamNumber}" class="player-list">
+                            ${teamPlayers.length === 0 
+                                ? `<li class="text-gray-400 italic">Nenhum jogador sorteado para este time.</li>`
+                                : '' // Começa vazio para a animação
+                            }
+                        </ul>
+                    </div>
+                `;
+                teamsContainer.innerHTML += teamCardHtml;
+            });
+            
+            // Captura as listas <ul> para usar na animação
+            teams.forEach((_, index) => {
+                teamListElements.push(document.getElementById(`team-list-${index + 1}`));
+            });
+
+            // 6. Inicia a Animação
+            animateDraw(teams, teamListElements, () => {
+                // Função de callback após o término da animação
+                
+                // Finaliza a mensagem de contagem
+                const sizeMessage = minTeamSize === maxTeamSize 
+                    ? `com ${minTeamSize} jogadores cada.` 
+                    : `com tamanhos entre ${minTeamSize} e ${maxTeamSize} jogadores.`;
+
+                countMessage.textContent = `Sorteio finalizado: ${N} jogadores divididos em ${T} times, ${sizeMessage}`;
+                
+                // Reativa o botão e exibe as opções de compartilhamento
+                sortButton.disabled = false;
+                sortButton.textContent = '⚽ Sortear Times';
+                shareTextButton.classList.remove('hidden');
+                captureButton.classList.remove('hidden');
+
+                // NOVO: Rola a página para a seção de resultados (suavemente)
+                document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+    </script>
+
+</body>
+</html>
