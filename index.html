@@ -83,7 +83,6 @@
                     maxlength="2000"
                     class="w-full p-4 border-2 border-blue-300 rounded-lg focus:ring-4 focus:ring-blue-200 transition duration-300 resize-none text-gray-800"
                 ></textarea>
-                <!-- REMOVIDO: <p class="text-sm text-gray-500 mt-2">Máximo recomendado: 18 nomes.</p> -->
             </div>
 
             <!-- Coluna 2: Parâmetros e Ação -->
@@ -134,7 +133,7 @@
             <div id="capture-area">
                 <h2 class="text-3xl font-bold text-blue-800 mb-2 text-center">Times Sorteados</h2>
                 
-                <!-- NOVO: Contador de Sorteios -->
+                <!-- Contador de Sorteios -->
                 <p id="draw-counter" class="text-sm text-gray-700 mb-1 text-center font-bold"></p> 
 
                 <!-- Elemento para exibir a data e hora do sorteio -->
@@ -148,18 +147,9 @@
             <!-- FIM DA ÁREA DE CAPTURA -->
 
 
-            <!-- Botões de Compartilhamento (Permanecem fora da área de captura) -->
+            <!-- Botões de Compartilhamento (Apenas o de Captura de Imagem agora) -->
             <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
-                <button
-                    onclick="shareTeams()"
-                    id="share-text-button"
-                    class="hidden bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 text-lg flex items-center justify-center"
-                >
-                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12.01 2.01C7.86 2.01 4.5 5.37 4.5 9.52c0 4.15 3.36 7.51 7.51 7.51h3.35l4.33 4.33c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41l-4.22-4.22c4.15 0 7.51-3.36 7.51-7.51C19.52 5.37 16.16 2.01 12.01 2.01zm-3.8 11.23c-.11-.06-.71-.35-.82-.39-.1-.04-.17-.06-.24.06-.06.11-.22.28-.27.35-.06.06-.11.07-.2.02-.3-.12-.87-.32-1.65-1.01-.6-.53-1-1.19-1.07-1.31-.07-.12-.01-.19.05-.24.05-.05.12-.13.17-.19.05-.06.07-.11.11-.18.04-.06.02-.11 0-.17-.02-.06-.24-.58-.33-.79-.09-.2-.18-.17-.24-.17-.06 0-.13-.01-.2-.01s-.18.01-.27.13c-.1.12-.37.36-.37.89 0 .53.38 1.03.43 1.11.05.08.76 1.17 1.84 1.63 1.06.44 1.95.42 2.22.3.29-.12.71-.29.81-.35.09-.06.19-.01.27.05.08.06.51.32.61.38.1.06.18.04.24 0 .06-.06.31-.19.6-.33.29-.14.19-.22.13-.24-.06-.02-.11-.06-.17-.11z"/>
-                    </svg>
-                    Compartilhar Texto (WhatsApp)
-                </button>
+                <!-- BOTÃO DE COMPARTILHAR TEXTO (WHATSAPP) REMOVIDO -->
 
                 <button
                     onclick="captureImage()"
@@ -174,10 +164,10 @@
     </div>
 
     <script>
-        // Variável global para armazenar os times sorteados para a função de compartilhamento
+        // Variável global para armazenar os times sorteados (embora não usada para compartilhar texto, é útil manter)
         let sortedTeamsData = [];
         let drawCount = 0; // Contador de sorteios realizados na sessão
-        const ANIMATION_DELAY = 150; // Ajustado de 50ms para 150ms para animação mais lenta
+        const ANIMATION_DELAY = 150; // Atraso da animação
 
         // Função para embaralhar um array (Algoritmo de Fisher-Yates)
         function shuffleArray(array) {
@@ -188,38 +178,7 @@
             return array;
         }
 
-        // Função para compartilhar os resultados no WhatsApp (Texto)
-        function shareTeams() {
-            if (sortedTeamsData.length === 0) {
-                const errorMessage = document.getElementById('error-message');
-                errorMessage.textContent = 'Nenhum sorteio realizado. Por favor, sorteie os times primeiro.';
-                errorMessage.classList.remove('hidden');
-                return;
-            }
-
-            let shareText = "⚽ *Times Sorteados* ⚽\n\n";
-            
-            // Constrói a mensagem a partir dos dados armazenados
-            sortedTeamsData.forEach((teamPlayers, index) => {
-                const teamNumber = index + 1;
-                shareText += `*Time ${teamNumber}* (${teamPlayers.length} jogadores):\n`;
-                if (teamPlayers.length > 0) {
-                    // Formata a lista para melhor visualização no WhatsApp
-                    shareText += "  - " + teamPlayers.join('\n  - ') + '\n'; 
-                } else {
-                    shareText += '(Time Vazio)\n';
-                }
-                shareText += '\n';
-            });
-            
-            shareText += "Bora pro jogo! 🥅";
-
-            // Abre o link do WhatsApp com a mensagem codificada
-            const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-            window.open(whatsappUrl, '_blank');
-        }
-
-        // Função para capturar a seção de resultados como imagem (PNG), AGORA SEM OS BOTÕES
+        // Função para capturar a seção de resultados como imagem (PNG)
         function captureImage() {
             const resultsSection = document.getElementById('results-section');
             const captureArea = document.getElementById('capture-area'); 
@@ -266,9 +225,6 @@
 
         /**
          * Anima a distribuição dos jogadores nas listas dos times.
-         * @param {Array<Array<string>>} teams - Array com os times e seus jogadores.
-         * @param {Array<HTMLElement>} teamListElements - Elementos <ul> dos times.
-         * @param {function} onComplete - Função a ser chamada no final da animação.
          */
         function animateDraw(teams, teamListElements, onComplete) {
             // Cria uma lista plana de todos os jogadores com o índice do time a que pertencem
@@ -324,7 +280,7 @@
             const numTeamsInput = document.getElementById('num-teams-input');
             const minPlayersInput = document.getElementById('min-players-input');
             const sortButton = document.getElementById('sort-button'); // ID do botão de sorteio
-            const shareTextButton = document.getElementById('share-text-button');
+            // const shareTextButton = document.getElementById('share-text-button'); // REMOVIDO
             const captureButton = document.getElementById('capture-button');
             
             const errorMessage = document.getElementById('error-message');
@@ -332,7 +288,7 @@
             const resultsSection = document.getElementById('results-section');
             const teamsContainer = document.getElementById('teams-container');
             const drawDatetimeElement = document.getElementById('draw-datetime'); 
-            const drawCounterElement = document.getElementById('draw-counter'); // Novo: Elemento do contador
+            const drawCounterElement = document.getElementById('draw-counter'); 
 
             // DESATIVA BOTÕES E LIMPA ESTADOS
             sortButton.disabled = true;
@@ -341,11 +297,11 @@
             errorMessage.classList.add('hidden');
             countMessage.classList.add('hidden');
             teamsContainer.innerHTML = ''; 
-            shareTextButton.classList.add('hidden'); 
+            // shareTextButton.classList.add('hidden'); // REMOVIDO
             captureButton.classList.add('hidden'); 
             sortedTeamsData = []; 
             drawDatetimeElement.textContent = ''; 
-            drawCounterElement.textContent = ''; // Novo: Limpa o contador
+            drawCounterElement.textContent = ''; 
             
             // 1. Processa e filtra os nomes
             let names = inputElement.value
@@ -438,13 +394,13 @@
                 if (currentSize > maxTeamSize) maxTeamSize = currentSize;
             }
             
-            // SALVA OS DADOS PARA COMPARTILHAMENTO
+            // SALVA OS DADOS (opcionalmente)
             sortedTeamsData = teams;
 
             // 5. Configura a UI para a animação
             drawDatetimeElement.textContent = datetimeString;
             
-            // NOVO: Incrementa e exibe o contador de sorteios
+            // Incrementa e exibe o contador de sorteios
             drawCount++;
             drawCounterElement.textContent = `Sorteio Nº ${drawCount}`;
 
@@ -511,10 +467,9 @@
                 // Reativa o botão e exibe as opções de compartilhamento
                 sortButton.disabled = false;
                 sortButton.textContent = '⚽ Sortear Times';
-                shareTextButton.classList.remove('hidden');
                 captureButton.classList.remove('hidden');
 
-                // NOVO: Rola a página para a seção de resultados (suavemente)
+                // Rola a página para a seção de resultados (suavemente)
                 document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
