@@ -79,10 +79,11 @@
                 <textarea
                     id="names-input"
                     rows="10"
-                    placeholder="Cole ou digite os nomes aqui, um por linha. (Ex: João, Maria, Pedro...)"
+                    placeholder="Cole ou digite os nomes aqui, um por linha. Adicione * no nome para separar jogadores (Ex: Pelé*)"
                     maxlength="2000"
                     class="w-full p-4 border-2 border-blue-300 rounded-lg focus:ring-4 focus:ring-blue-200 transition duration-300 resize-none text-gray-800"
                 ></textarea>
+                <p class="text-xs text-gray-400 mt-2 italic">* Jogadores com asterisco serão distribuídos em times diferentes para equilibrar.</p>
             </div>
 
             <!-- Coluna 2: Parâmetros e Ação -->
@@ -129,7 +130,7 @@
 
         <section id="results-section" class="mt-10 border-t pt-8 hidden">
             
-            <!-- ÁREA DE CAPTURA DE IMAGEM: Apenas o conteúdo dos times está aqui. -->
+            <!-- ÁREA DE CAPTURA DE IMAGEM -->
             <div id="capture-area">
                 <h2 class="text-3xl font-bold text-blue-800 mb-2 text-center">Times Sorteados</h2>
                 
@@ -147,10 +148,8 @@
             <!-- FIM DA ÁREA DE CAPTURA -->
 
 
-            <!-- Botões de Compartilhamento (Apenas o de Captura de Imagem agora) -->
+            <!-- Botões de Compartilhamento -->
             <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
-                <!-- BOTÃO DE COMPARTILHAR TEXTO (WHATSAPP) REMOVIDO -->
-
                 <button
                     onclick="captureImage()"
                     id="capture-button"
@@ -164,12 +163,10 @@
     </div>
 
     <script>
-        // Variável global para armazenar os times sorteados (embora não usada para compartilhar texto, é útil manter)
         let sortedTeamsData = [];
-        let drawCount = 0; // Contador de sorteios realizados na sessão
-        const ANIMATION_DELAY = 150; // Atraso da animação
+        let drawCount = 0; 
+        const ANIMATION_DELAY = 150; 
 
-        // Função para embaralhar um array (Algoritmo de Fisher-Yates)
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -178,109 +175,82 @@
             return array;
         }
 
-        // Função para capturar a seção de resultados como imagem (PNG)
         function captureImage() {
             const resultsSection = document.getElementById('results-section');
             const captureArea = document.getElementById('capture-area'); 
             const loadingOverlay = document.getElementById('loading-capture');
 
-            if (resultsSection.classList.contains('hidden')) {
-                const errorMessage = document.getElementById('error-message');
-                errorMessage.textContent = 'Nenhum sorteio realizado para capturar a imagem.';
-                errorMessage.classList.remove('hidden');
-                return;
-            }
+            if (resultsSection.classList.contains('hidden')) return;
 
-            // 1. Mostrar loading overlay
             loadingOverlay.classList.remove('hidden');
 
-            // 2. Usar html2canvas para renderizar APENAS a área de captura
             html2canvas(captureArea, {
                 scale: 2, 
                 backgroundColor: '#ffffff', 
             }).then(canvas => {
-                // 3. Converter canvas para URL de dados (PNG)
                 const image = canvas.toDataURL('image/png');
-
-                // 4. Criar um link temporário para download
                 const link = document.createElement('a');
                 link.href = image;
-                link.download = 'times_sorteados.png';
-
-                // 5. Simular o clique no link para iniciar o download
+                link.download = `times_sorteados_${drawCount}.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                
-                // 6. Remover o loading overlay
                 loadingOverlay.classList.add('hidden');
             }).catch(error => {
                 loadingOverlay.classList.add('hidden');
-                const errorMessage = document.getElementById('error-message');
-                errorMessage.textContent = `Erro ao gerar a imagem: ${error.message}. Tente novamente.`;
-                errorMessage.classList.remove('hidden');
+                console.error(error);
             });
         }
 
-
         /**
-         * Anima a distribuição dos jogadores nas listas dos times.
+         * Anima a distribuição dos jogadores.
          */
         function animateDraw(teams, teamListElements, onComplete) {
-            // Cria uma lista plana de todos os jogadores com o índice do time a que pertencem
-            const playerQueue = [];
-            teams.forEach((teamPlayers, teamIndex) => {
-                teamPlayers.forEach(player => {
-                    playerQueue.push({ player, teamIndex });
-                });
-            });
+            const animationQueue = [];
+            
+            const maxPlayers = Math.max(...teams.map(t => t.length));
+            
+            for (let i = 0; i < maxPlayers; i++) {
+                for (let t = 0; t < teams.length; t++) {
+                    if (teams[t][i]) {
+                        animationQueue.push({ 
+                            player: teams[t][i], 
+                            teamIndex: t 
+                        });
+                    }
+                }
+            }
 
-            // Embaralha a ordem em que os jogadores serão adicionados para simular um sorteio dinâmico
-            shuffleArray(playerQueue);
-
-            let playerIndex = 0;
-            const N = playerQueue.length;
-
-            function addNextPlayer() {
-                if (playerIndex >= N) {
-                    // Animação completa
+            let index = 0;
+            function step() {
+                if (index >= animationQueue.length) {
                     onComplete();
                     return;
                 }
 
-                const { player, teamIndex } = playerQueue[playerIndex];
-                const ulElement = teamListElements[teamIndex];
+                const { player, teamIndex } = animationQueue[index];
+                const ul = teamListElements[teamIndex];
+                const li = document.createElement('li');
+                li.textContent = player;
                 
-                if (ulElement) {
-                    // Cria o elemento <li>
-                    const li = document.createElement('li');
-                    li.textContent = player;
-                    
-                    // Adiciona o <li> à lista <ul>
-                    ulElement.appendChild(li);
+                // Removido o destaque visual do asterisco, mantendo apenas o texto original
+                ul.appendChild(li);
 
-                    // Força um repaint para garantir que a transição CSS funcione
-                    setTimeout(() => {
-                        li.classList.add('animated-in');
-                    }, 5); 
-                }
+                setTimeout(() => {
+                    li.classList.add('animated-in');
+                }, 10);
 
-                playerIndex++;
-                // Chama a função novamente após o atraso definido
-                setTimeout(addNextPlayer, ANIMATION_DELAY);
+                index++;
+                setTimeout(step, ANIMATION_DELAY);
             }
-            
-            // Inicia a animação
-            addNextPlayer();
+            step();
         }
 
-        // Função principal para sortear os times
         function sortearTimes() {
             const inputElement = document.getElementById('names-input');
             const numTeamsInput = document.getElementById('num-teams-input');
             const minPlayersInput = document.getElementById('min-players-input');
-            const sortButton = document.getElementById('sort-button'); // ID do botão de sorteio
-            // const shareTextButton = document.getElementById('share-text-button'); // REMOVIDO
+            const sortButton = document.getElementById('sort-button'); 
             const captureButton = document.getElementById('capture-button');
             
             const errorMessage = document.getElementById('error-message');
@@ -290,33 +260,26 @@
             const drawDatetimeElement = document.getElementById('draw-datetime'); 
             const drawCounterElement = document.getElementById('draw-counter'); 
 
-            // DESATIVA BOTÕES E LIMPA ESTADOS
+            // RESET
             sortButton.disabled = true;
             sortButton.textContent = 'Sorteando... 🔄';
             resultsSection.classList.add('hidden');
             errorMessage.classList.add('hidden');
             countMessage.classList.add('hidden');
             teamsContainer.innerHTML = ''; 
-            // shareTextButton.classList.add('hidden'); // REMOVIDO
             captureButton.classList.add('hidden'); 
-            sortedTeamsData = []; 
-            drawDatetimeElement.textContent = ''; 
-            drawCounterElement.textContent = ''; 
             
-            // 1. Processa e filtra os nomes
-            let names = inputElement.value
-                .split('\n')
-                .map(name => name.trim())
-                .filter(name => name !== '');
+            // 1. Processa nomes e separa Estrelas (*) de Regulares
+            let allLines = inputElement.value.split('\n').map(n => n.trim()).filter(n => n !== '');
             
-            let availablePlayers = shuffleArray(names); 
-            const N = availablePlayers.length; 
-
-            // 2. Lendo Parâmetros
+            let starredPlayers = allLines.filter(n => n.includes('*'));
+            let regularPlayers = allLines.filter(n => !n.includes('*'));
+            
+            const N = allLines.length;
             const T = parseInt(numTeamsInput.value); 
             const M = parseInt(minPlayersInput.value); 
 
-            // 3. Validações
+            // 2. Validações
             if (N === 0) {
                 errorMessage.textContent = 'Por favor, insira pelo menos um nome.';
                 errorMessage.classList.remove('hidden');
@@ -331,90 +294,71 @@
                 sortButton.textContent = '⚽ Sortear Times';
                 return;
             }
-             if (isNaN(M) || M < 1) {
-                errorMessage.textContent = 'O mínimo de jogadores por time deve ser no mínimo 1.';
-                errorMessage.classList.remove('hidden');
-                sortButton.disabled = false;
-                sortButton.textContent = '⚽ Sortear Times';
-                return;
-            }
 
             if (T > N) {
-                 errorMessage.textContent = `O número de times (${T}) não pode ser maior que o número total de jogadores (${N}).`;
+                errorMessage.textContent = `O número de times (${T}) não pode ser maior que o número total de jogadores (${N}).`;
                 errorMessage.classList.remove('hidden');
                 sortButton.disabled = false;
                 sortButton.textContent = '⚽ Sortear Times';
                 return;
             }
-            
-            // Mensagem de Aviso
-            const requiredPlayers = T * M;
-            if (requiredPlayers > N) {
-                 countMessage.textContent = `AVISO: O total de jogadores (${N}) é menor que o mínimo estipulado (${requiredPlayers}). O sorteio será feito, mas o(s) último(s) time(s) poderá(ão) ficar abaixo do mínimo (${M}).`;
-                 countMessage.classList.add('text-orange-600', 'bg-orange-100', 'p-2', 'rounded');
-                 countMessage.classList.remove('hidden', 'text-blue-600');
-            } else {
-                 countMessage.textContent = `Total de ${N} jogadores. Criados ${T} times com mínimo de ${M} jogadores.`;
-                 countMessage.classList.add('text-blue-600');
-                 countMessage.classList.remove('hidden', 'text-orange-600', 'bg-orange-100', 'p-2', 'rounded');
-            }
-            
-            // Captura e formata a data e hora do sorteio
-            const now = new Date();
-            const formattedDate = now.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
-            const formattedTime = now.toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            const datetimeString = `Sorteio realizado em ${formattedDate} às ${formattedTime}`;
 
-            // 4. Lógica de Distribuição Dinâmica - Abordagem "Greedy" (Guloso)
-            const teams = [];
-            let minTeamSize = Infinity;
-            let maxTeamSize = -Infinity;
+            // 3. Lógica de Sorteio com a regra do asterisco
+            shuffleArray(starredPlayers);
+            shuffleArray(regularPlayers);
+            
+            let teams = Array.from({ length: T }, () => []);
+            
+            // A - Distribuir jogadores com estrela (*) em times diferentes
+            starredPlayers.forEach((player, index) => {
+                const targetTeam = index % T;
+                teams[targetTeam].push(player);
+            });
 
+            // B - Definir os tamanhos alvo
+            let totalRemaining = N;
+            let targetSizes = [];
             for (let i = 0; i < T; i++) {
-                let numPlayersToTake;
-                
+                let size;
                 if (i < T - 1) {
-                    numPlayersToTake = Math.min(M, availablePlayers.length);
+                    size = Math.min(M, totalRemaining - (T - 1 - i));
                 } else {
-                    numPlayersToTake = availablePlayers.length;
+                    size = totalRemaining;
                 }
-                
-                const teamPlayers = availablePlayers.splice(0, numPlayersToTake);
-                teams.push(teamPlayers);
-
-                const currentSize = teamPlayers.length;
-                if (currentSize < minTeamSize) minTeamSize = currentSize;
-                if (currentSize > maxTeamSize) maxTeamSize = currentSize;
+                size = Math.max(size, teams[i].length);
+                targetSizes.push(size);
+                totalRemaining -= size;
             }
             
-            // SALVA OS DADOS (opcionalmente)
-            sortedTeamsData = teams;
+            if (totalRemaining > 0) {
+                for(let i=0; i < totalRemaining; i++) {
+                    targetSizes[i % T]++;
+                }
+            }
 
-            // 5. Configura a UI para a animação
-            drawDatetimeElement.textContent = datetimeString;
+            // C - Preencher com jogadores Regulares
+            teams.forEach((team, i) => {
+                const needed = targetSizes[i] - team.length;
+                if (needed > 0) {
+                    const toAdd = regularPlayers.splice(0, needed);
+                    teams[i] = team.concat(toAdd);
+                }
+            });
             
-            // Incrementa e exibe o contador de sorteios
+            if (regularPlayers.length > 0) {
+                teams[T-1] = teams[T-1].concat(regularPlayers);
+            }
+
+            // 4. UI e Animação
+            sortedTeamsData = teams;
+            const now = new Date();
+            drawDatetimeElement.textContent = `Sorteio realizado em ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`;
             drawCount++;
             drawCounterElement.textContent = `Sorteio Nº ${drawCount}`;
 
             resultsSection.classList.remove('hidden');
 
-            // Ajusta o layout do grid baseado no número de times
-            let gridColsClass = 'grid-cols-1';
-            if (T === 2) {
-                gridColsClass = 'md:grid-cols-2';
-            } else if (T === 3) {
-                gridColsClass = 'md:grid-cols-3';
-            } else if (T >= 4) {
-                gridColsClass = 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
-            }
+            let gridColsClass = T === 2 ? 'md:grid-cols-2' : (T === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4');
             teamsContainer.className = `grid gap-6 ${gridColsClass}`;
 
             const teamColors = [
@@ -427,50 +371,29 @@
             ];
 
             const teamListElements = [];
-
-            // Pré-renderiza os containers vazios
             teams.forEach((teamPlayers, index) => {
                 const teamNumber = index + 1;
                 const color = teamColors[index % teamColors.length];
-                
-                const teamCardHtml = `
-                    <div id="team-${teamNumber}-card" class="team-card ${color.bg} p-6 rounded-xl shadow-md">
-                        <h3 class="text-2xl font-extrabold ${color.text} mb-2">Time ${teamNumber}</h3>
-                        <p class="text-sm text-gray-600 mb-4">Total de Jogadores: <span id="count-${teamNumber}" class="font-bold">${teamPlayers.length}</span></p>
-                        <ul id="team-list-${teamNumber}" class="player-list">
-                            ${teamPlayers.length === 0 
-                                ? `<li class="text-gray-400 italic">Nenhum jogador sorteado para este time.</li>`
-                                : '' // Começa vazio para a animação
-                            }
-                        </ul>
-                    </div>
+                const card = document.createElement('div');
+                card.className = `team-card ${color.bg} p-6 rounded-xl shadow-md`;
+                card.innerHTML = `
+                    <h3 class="text-2xl font-extrabold ${color.text} mb-2">Time ${teamNumber}</h3>
+                    <p class="text-sm text-gray-600 mb-4">Jogadores: <span class="font-bold">${teamPlayers.length}</span></p>
+                    <ul id="team-list-${teamNumber}" class="player-list"></ul>
                 `;
-                teamsContainer.innerHTML += teamCardHtml;
-            });
-            
-            // Captura as listas <ul> para usar na animação
-            teams.forEach((_, index) => {
-                teamListElements.push(document.getElementById(`team-list-${index + 1}`));
+                teamsContainer.appendChild(card);
+                teamListElements.push(document.getElementById(`team-list-${teamNumber}`));
             });
 
-            // 6. Inicia a Animação
+            countMessage.textContent = `Sorteando ${N} jogadores...`;
+            countMessage.classList.remove('hidden');
+
             animateDraw(teams, teamListElements, () => {
-                // Função de callback após o término da animação
-                
-                // Finaliza a mensagem de contagem
-                const sizeMessage = minTeamSize === maxTeamSize 
-                    ? `com ${minTeamSize} jogadores cada.` 
-                    : `com tamanhos entre ${minTeamSize} e ${maxTeamSize} jogadores.`;
-
-                countMessage.textContent = `Sorteio finalizado: ${N} jogadores divididos em ${T} times, ${sizeMessage}`;
-                
-                // Reativa o botão e exibe as opções de compartilhamento
+                countMessage.textContent = `Sorteio finalizado com sucesso!`;
                 sortButton.disabled = false;
                 sortButton.textContent = '⚽ Sortear Times';
                 captureButton.classList.remove('hidden');
-
-                // Rola a página para a seção de resultados (suavemente)
-                document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
     </script>
